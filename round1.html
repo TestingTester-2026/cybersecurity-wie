@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IEEE WIE Cybersecurity - Round 1</title>
+    <link rel="stylesheet" href="round1.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="crt-overlay"></div>
+    <div class="scanline"></div>
+
+    <header class="persistent-header">
+        <h1 class="glitch" data-text="IEEE WIE Cybersecurity Tournament">IEEE WIE Cybersecurity Tournament</h1>
+        <h2>[ SYSTEM.ACCESS: ROUND 1_RED_LIGHT_GREEN_LIGHT ]</h2>
+    </header>
+
+    <main class="game-container">
+        <div id="start-screen" class="screen active">
+            <h2 class="neon-text">Analyze & Decide</h2>
+            <div class="terminal-box">
+                <p class="typewriter">> INITIALIZING SIMULATION...</p>
+                <p class="typewriter delay-1">> TARGET: Phishing & Social Engineering Detection</p>
+                <p class="typewriter delay-2">> MISSION: Analyze intercepted communications.</p>
+                <p class="typewriter delay-3">> INPUT REQUIRED: "Safe" (Legitimate) or "Scam" (Threat)</p>
+                <p class="typewriter delay-4">> AWAITING USER CONFIRMATION_</p>
+            </div>
+            <button id="start-btn" class="cyber-btn">
+                <span class="btn-text">INITIALIZE_ROUND_1</span>
+                <span class="btn-glitch"></span>
+            </button>
+        </div>
+
+        <div id="question-screen" class="screen">
+            <div class="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <div class="card cyber-card">
+                <h3 id="q-number" class="neon-text">Scenario 1</h3>
+                <div class="scenario-details terminal-box">
+                    <p><strong>> FROM:</strong> <span id="q-from"></span></p>
+                    <p><strong>> CONTEXT:</strong> <span id="q-subject"></span></p>
+                    <p><strong>> DETAILS:</strong> <span id="q-detail"></span></p>
+                </div>
+                
+                <div class="input-group">
+                    <label for="answer-input">> IS_THIS_THREAT?</label>
+                    <div class="input-wrapper">
+                        <span class="prompt-arrow">></span>
+                        <input type="text" id="answer-input" placeholder="Type 'Safe' or 'Scam'..." autocomplete="off">
+                    </div>
+                </div>
+                <button id="submit-btn" class="cyber-btn">
+                    <span class="btn-text">EXECUTE_ANALYSIS</span>
+                </button>
+                <div id="feedback-message" class="hidden"></div>
+            </div>
+        </div>
+
+        <div id="end-screen" class="screen">
+            <h2 class="neon-text">SIMULATION_COMPLETE</h2>
+            <div class="terminal-box">
+                <p>> PROCESSING RESULTS...</p>
+                <p>> FINAL SCORE: <span id="final-score" class="neon-text score-text">0</span> / 4</p>
+                <p id="evaluation-text"></p>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button id="restart-btn" class="cyber-btn" style="margin-top: 0;">
+                    <span class="btn-text">REBOOT_SYSTEM</span>
+                </button>
+                <a href="index.html" class="cyber-btn" style="margin-top: 0; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                    <span class="btn-text">RETURN_TO_MAIN</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
