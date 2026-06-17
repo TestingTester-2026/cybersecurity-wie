@@ -1,27 +1,27 @@
 const questions = [
     {
-        from: "security@microsoft.com",
-        subject: "Unusual sign-in activity detected",
-        detail: "Looks professional, logo present, redirects to account-microsoft-security.com",
-        answer: "Scam"
+        from: "Development Team",
+        subject: "Healthcare AI Tool Deployment",
+        detail: "A healthcare AI tool flags a patient as 'low risk' for a serious condition. The development team knows the model was trained on a dataset underrepresenting women over 50. They ship the tool anyway to meet the launch deadline.",
+        answer: "Red light"
     },
     {
-        from: "support@googlemail.com",
-        subject: "Your storage is almost full",
-        detail: "Link: https://accounts.google.com/storage",
-        answer: "Safe"
+        from: "Social Media Executive",
+        subject: "Recommendation System Audit",
+        detail: "A social media company learns its recommendation system promotes harmful misinformation but delays action because engagement is at an all-time high.",
+        answer: "Red light"
     },
     {
-        from: "Verified Bank SMS Sender",
-        subject: "Your KYC expires in 3 days.",
-        detail: "Please update it through the official banking app. No links, no OTP requests.",
-        answer: "Safe"
+        from: "University Admissions",
+        subject: "AI Screening Deployment",
+        detail: "A university uses AI to screen applications. Before deployment, it conducts fairness testing across gender, ethnicity, and socioeconomic groups.",
+        answer: "Green light"
     },
     {
-        from: "hr@careers-company.com",
-        subject: "Congratulations! Internship Offer Letter",
-        detail: "PDF attached, requests ₹500 document verification fee within 24 hours.",
-        answer: "Scam"
+        from: "Fitness App Tracker",
+        subject: "Data Monetization",
+        detail: "A fitness app shares users' location history with advertisers without clearly informing users.",
+        answer: "Red light"
     }
 ];
 
@@ -34,8 +34,8 @@ const questionScreen = document.getElementById('question-screen');
 const endScreen = document.getElementById('end-screen');
 const startBtn = document.getElementById('start-btn');
 const submitBtn = document.getElementById('submit-btn');
-const restartBtn = document.getElementById('restart-btn');
-const answerInput = document.getElementById('answer-input');
+const btnRedLight = document.getElementById('btn-red-light');
+const btnGreenLight = document.getElementById('btn-green-light');
 const feedbackMessage = document.getElementById('feedback-message');
 const progressFill = document.getElementById('progress-fill');
 
@@ -67,11 +67,8 @@ function typeWriterEffect(element, text, speed = 15) {
 
 // Event Listeners
 startBtn.addEventListener('click', startGame);
-submitBtn.addEventListener('click', checkAnswer);
-restartBtn.addEventListener('click', resetGame);
-answerInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') checkAnswer();
-});
+btnRedLight.addEventListener('click', () => checkAnswer('red light'));
+btnGreenLight.addEventListener('click', () => checkAnswer('green light'));
 
 function startGame() {
     startScreen.classList.remove('active');
@@ -95,10 +92,11 @@ async function loadQuestion() {
     qSubject.textContent = '';
     qDetail.textContent = '';
     
-    answerInput.value = '';
-    answerInput.disabled = true; // Disable until typing finishes
-    submitBtn.disabled = true;
-    submitBtn.style.opacity = '0.5';
+    btnRedLight.disabled = true; // Disable until typing finishes
+    btnGreenLight.disabled = true;
+    btnRedLight.style.opacity = '0.5';
+    btnGreenLight.style.opacity = '0.5';
+    submitBtn.classList.add('hidden');
     
     feedbackMessage.className = 'hidden';
     progressFill.style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
@@ -109,30 +107,20 @@ async function loadQuestion() {
     await typeWriterEffect(qDetail, q.detail);
 
     // Re-enable input
-    answerInput.disabled = false;
-    submitBtn.disabled = false;
-    submitBtn.style.opacity = '1';
-    answerInput.focus();
-    
-    submitBtn.querySelector('.btn-text').textContent = "EXECUTE_ANALYSIS";
-    submitBtn.onclick = checkAnswer;
+    btnRedLight.disabled = false;
+    btnGreenLight.disabled = false;
+    btnRedLight.style.opacity = '1';
+    btnGreenLight.style.opacity = '1';
 }
 
-function checkAnswer() {
-    if(answerInput.disabled) return;
-
-    const userAnswer = answerInput.value.trim().toLowerCase();
-    
-    if (userAnswer !== 'safe' && userAnswer !== 'scam') {
-        feedbackMessage.innerHTML = '> ERROR: INVALID_INPUT. MUST BE "SAFE" OR "SCAM".';
-        feedbackMessage.className = 'feedback-wrong';
-        return;
-    }
+function checkAnswer(userAnswer) {
+    if(btnRedLight.disabled) return;
 
     const q = questions[currentQuestionIndex];
     const isCorrect = userAnswer === q.answer.toLowerCase();
 
     feedbackMessage.className = isCorrect ? 'feedback-correct' : 'feedback-wrong';
+    feedbackMessage.classList.remove('hidden');
     
     if (isCorrect) {
         feedbackMessage.innerHTML = `> ANALYSIS_CORRECT: TARGET IDENTIFIED AS [${q.answer.toUpperCase()}].`;
@@ -142,7 +130,12 @@ function checkAnswer() {
         if(!isCorrect) document.querySelector('.cyber-card').style.borderColor = 'var(--error)';
     }
 
-    answerInput.disabled = true;
+    btnRedLight.disabled = true;
+    btnGreenLight.disabled = true;
+    btnRedLight.style.opacity = '0.5';
+    btnGreenLight.style.opacity = '0.5';
+    
+    submitBtn.classList.remove('hidden');
     submitBtn.querySelector('.btn-text').textContent = "PROCEED_TO_NEXT";
     submitBtn.onclick = () => {
         document.querySelector('.cyber-card').style.borderColor = 'var(--brand-hover)';
@@ -180,14 +173,4 @@ function endGame() {
         }
         currentScore++;
     }, 200);
-}
-
-function resetGame() {
-    endScreen.classList.remove('active');
-    startScreen.classList.add('active');
-    
-    // Retrigger animations by cloning and replacing start screen terminal box
-    const box = document.querySelector('#start-screen .terminal-box');
-    const newBox = box.cloneNode(true);
-    box.parentNode.replaceChild(newBox, box);
 }
