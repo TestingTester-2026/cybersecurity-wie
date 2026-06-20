@@ -1,3 +1,5 @@
 node_modules/
 tournament.db
 tournament.db-*
+.agent/
+.github/
