@@ -20,7 +20,8 @@
   },
   "homepage": "https://github.com/Faze-Mortal/cybersecurity-wie#readme",
   "dependencies": {
-    "better-sqlite3": "^12.11.1",
+    "@supabase/supabase-js": "^2.108.2",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0"
   }

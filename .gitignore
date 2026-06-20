@@ -3,3 +3,4 @@ tournament.db
 tournament.db-*
 .agent/
 .github/
+.env
