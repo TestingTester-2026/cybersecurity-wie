@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IEEE WIE Cyber Survival Challenge</title>
+    <title>Cyber Odyssey</title>
     <link rel="stylesheet" href="style.css?v=2">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
 </head>
@@ -14,8 +14,9 @@
         <!-- Top Header -->
         <header class="top-header" style="justify-content: center; text-align: center; border-bottom: none; margin-bottom: 2rem;">
             <div class="header-details" style="width: 100%; display: flex; justify-content: center;">
-                <h1 class="header-title" style="text-align: center;">CYBER SURVIVAL CHALLENGE</h1>
+                <h1 class="header-title" style="text-align: center;">CYBER ODYSSEY</h1>
             </div>
+            <div id="team-info" style="text-align: center; font-family: 'Fira Code', monospace; color: #9d4edd; font-size: 0.85rem; margin-top: 0.5rem;"></div>
         </header>
 
         <!-- Hero Section -->
@@ -28,7 +29,7 @@
                 <h3 class="hero-subtitle">5 ROUNDS. 1 ULTIMATE SURVIVOR.</h3>
                 
                 <p class="hero-desc">
-                    Test your cyber awareness, logic, and problem-solving skills in our intense IEEE WIE Cybersecurity Tournament. Only the fastest and smartest will survive the challenge!
+                    Test your cyber awareness, logic, and problem-solving skills in our intense Cyber Odyssey. Only the fastest and smartest will survive the challenge!
                 </p>
                 
                 
@@ -91,10 +92,104 @@
                 </div>
             </div>
             
-            <div style="text-align: center; margin-top: 4rem;">
+            <div id="action-btn-container" style="text-align: center; margin-top: 4rem;">
                 <a href="round1.html" class="start-quiz-btn">START QUIZ TEST</a>
             </div>
         </section>
     </div>
+
+    <!-- User Modal Overlay -->
+    <div id="user-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 5, 28, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div class="terminal-box" style="background: var(--bg-dark); border: 2px solid var(--primary); padding: 3rem; border-radius: 8px; width: 400px; max-width: 90%; text-align: center; position: relative;">
+            <button onclick="closeUserModal()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; color: var(--text-muted); font-size: 2rem; cursor: pointer; font-family: monospace;">&times;</button>
+            <h2 class="neon-text" style="font-size: 1.5rem; margin-bottom: 2rem;">USER_PROFILE</h2>
+            
+            <div style="text-align: left; margin-bottom: 2rem; font-family: 'Fira Code', monospace; color: var(--text-main); font-size: 1rem; line-height: 1.8;">
+                <p><strong style="color: var(--accent);">> NAME:</strong> <span id="modal-user-name"></span></p>
+                <p><strong style="color: var(--accent);">> TEAM:</strong> <span id="modal-team-name"></span></p>
+                <p><strong style="color: var(--accent);">> REG_NO:</strong> <span id="modal-reg-no"></span></p>
+            </div>
+            
+            <button onclick="logoutUser()" class="btn btn-primary" style="width: 100%; border: 1px solid var(--error); background: rgba(255, 0, 0, 0.1); color: #ff4d4d; box-shadow: none; font-family: 'Fira Code', monospace; font-size: 1rem;">> INITIATE_LOGOUT</button>
+        </div>
+    </div>
 </body>
+<script>
+(async function checkSession() {
+    try {
+        const res = await fetch('/api/session');
+        const data = await res.json();
+        if (!data.authenticated) {
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        const teamInfoEl = document.getElementById('team-info');
+        if (teamInfoEl) {
+            const safeName = (data.name || '').replace(/'/g, "\\'");
+            const safeTeam = (data.team_name || '').replace(/'/g, "\\'");
+            const safeReg = (data.registration_number || '').replace(/'/g, "\\'");
+            teamInfoEl.innerHTML = `<span style="cursor: pointer; text-decoration: underline; text-decoration-color: rgba(157, 78, 221, 0.5); text-underline-offset: 4px; padding: 5px;" onclick="openUserModal('${safeName}', '${safeTeam}', '${safeReg}')">> LOGGED IN AS: ${data.team_name}${data.is_admin ? ' [ADMIN]' : ''}</span>`;
+        }
+
+        // Check if all rounds are completed
+        const s = data.scores;
+        if (s && s.round_1 !== null && s.round_2 !== null && s.round_3 !== null && s.round_4 !== null && s.round_5 !== null) {
+            const total = s.round_1 + s.round_2 + s.round_3 + s.round_4 + s.round_5;
+            const btnContainer = document.getElementById('action-btn-container');
+            if (btnContainer) {
+                btnContainer.innerHTML = `<button onclick="showFinalResults(${total})" class="start-quiz-btn" style="background: var(--brand-primary); cursor: pointer; border: none; font-family: inherit;">SHOW RESULTS</button>`;
+            }
+        }
+    } catch(e) {
+        // If server is not running, allow static browsing
+        console.warn('Server not reachable, running in static mode.');
+    }
+})();
+
+function showFinalResults(totalScore) {
+    const roundsGrid = document.querySelector('.rounds-grid');
+    if (roundsGrid) {
+        roundsGrid.innerHTML = `
+            <div class="terminal-box" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; border-color: var(--success); background: rgba(0, 200, 83, 0.05);">
+                <h2 class="neon-text" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--success);">> SYSTEM_OVERRIDE_COMPLETE</h2>
+                <p style="font-size: 1.2rem; margin-bottom: 2rem; color: var(--text-main);">> ALL PROTOCOLS EXECUTED. FINAL SCORE COMPUTED.</p>
+                <div style="font-size: 5rem; color: var(--success); font-weight: bold; text-shadow: 0 0 30px rgba(0, 200, 83, 0.5); font-family: 'Fira Code', monospace;">
+                    ${totalScore} <span style="font-size: 2.5rem; color: var(--text-secondary); text-shadow: none;">/ 74</span>
+                </div>
+                <p style="font-size: 1rem; color: var(--text-secondary); margin-top: 1rem;">TOTAL POINTS ACQUIRED</p>
+            </div>
+        `;
+    }
+    const btnContainer = document.getElementById('action-btn-container');
+    if (btnContainer) btnContainer.style.display = 'none';
+}
+
+// User Modal Functions
+function openUserModal(name, team, reg) {
+    document.getElementById('modal-user-name').textContent = name || 'N/A';
+    document.getElementById('modal-team-name').textContent = team || 'N/A';
+    document.getElementById('modal-reg-no').textContent = reg || 'N/A';
+    document.getElementById('user-overlay').style.display = 'flex';
+}
+
+function closeUserModal() {
+    document.getElementById('user-overlay').style.display = 'none';
+}
+
+// Close modal if clicking outside the box
+document.getElementById('user-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeUserModal();
+});
+
+async function logoutUser() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = 'login.html';
+    } catch(e) {
+        console.error(e);
+        window.location.href = 'login.html';
+    }
+}
+</script>
 </html>

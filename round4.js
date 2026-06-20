@@ -7,7 +7,6 @@ const questions = [
             "C) Malware",
             "D) Cloud Security"
         ],
-        answer: 1, // B
         note: "The balance scale represents justice and fairness, the robot represents AI/algorithms, and the laptop represents computing."
     },
     {
@@ -18,7 +17,6 @@ const questions = [
             "C) Integrity",
             "D) Governance"
         ],
-        answer: 2, // C
         note: "Applying ROT13 (shifting letters by 13 places) to VAGRTEVGL yields INTEGRITY."
     },
     {
@@ -29,7 +27,6 @@ const questions = [
             "C) Encryption",
             "D) Hardware"
         ],
-        answer: 1, // B
         note: "Accountability is a core pillar of responsible AI, ensuring that someone is responsible for the impacts of AI systems."
     },
     {
@@ -40,7 +37,6 @@ const questions = [
             "C) RESPONSIBLE",
             "D) INNOVATION"
         ],
-        answer: 0, // A
         note: "Swapping the letters based on a standard QWERTY keyboard layout reveals the word TRANSPARENCY."
     }
 ];
@@ -49,11 +45,14 @@ const questions = [
 let currentQuestionIndex = 0;
 let score = 0;
 let selectedOptionIndex = -1;
+let userAnswers = [];
+let isAdmin = false;
 
 // DOM Elements
 const startScreen = document.getElementById('start-screen');
 const questionScreen = document.getElementById('question-screen');
 const endScreen = document.getElementById('end-screen');
+const blockedScreen = document.getElementById('blocked-screen');
 const startBtn = document.getElementById('start-btn');
 const submitBtn = document.getElementById('submit-btn');
 const optionsContainer = document.getElementById('options-container');
@@ -63,15 +62,43 @@ const progressFill = document.getElementById('progress-fill');
 const finalScore = document.getElementById('final-score');
 const evaluationText = document.getElementById('evaluation-text');
 
-// Event Listeners
-startBtn.addEventListener('click', startGame);
-submitBtn.addEventListener('click', checkAnswer);
+// ─── SESSION & ROUND STATUS CHECK ───────────────────────────────────────────
+(async function init() {
+    try {
+        const sessionRes = await fetch('/api/session');
+        const sessionData = await sessionRes.json();
+        if (!sessionData.authenticated) {
+            window.location.href = 'login.html';
+            return;
+        }
+        isAdmin = sessionData.is_admin;
 
-function startGame() {
+        const statusRes = await fetch('/api/round/4/status');
+        const statusData = await statusRes.json();
+        if (statusData.completed && !isAdmin) {
+            startScreen.classList.remove('active');
+            if (blockedScreen) {
+                blockedScreen.classList.add('active');
+                const blockedScore = document.getElementById('blocked-score');
+                if (blockedScore) blockedScore.textContent = statusData.score;
+            }
+            return;
+        }
+    } catch(e) {
+        console.warn('Server not reachable, running in static mode.');
+    }
+
+    startBtn.addEventListener('click', startGame);
+    submitBtn.addEventListener('click', checkAnswer);
+})();
+
+async function startGame() {
+    try { await fetch('/api/round/4/start', { method: 'POST' }); } catch(e) {}
     startScreen.classList.remove('active');
     questionScreen.classList.add('active');
     currentQuestionIndex = 0;
     score = 0;
+    userAnswers = [];
     loadQuestion();
 }
 
@@ -85,7 +112,6 @@ function loadQuestion() {
     document.getElementById('q-number').textContent = `Puzzle ${currentQuestionIndex + 1}`;
     document.getElementById('q-scenario').textContent = q.scenario;
     
-    // Reset state
     selectedOptionIndex = -1;
     submitBtn.disabled = true;
     submitBtn.style.opacity = '0.5';
@@ -96,11 +122,9 @@ function loadQuestion() {
     developerNote.className = 'hidden';
     document.querySelector('.cyber-card').style.borderColor = 'var(--border-color)';
 
-    // Update progress bar
     const progressPercentage = (currentQuestionIndex / questions.length) * 100;
     progressFill.style.width = `${progressPercentage}%`;
 
-    // Render options
     optionsContainer.innerHTML = '';
     q.options.forEach((opt, index) => {
         const btn = document.createElement('button');
@@ -112,15 +136,10 @@ function loadQuestion() {
 }
 
 function selectOption(index, btnElement) {
-    if (submitBtn.querySelector('.btn-text').textContent === "PROCEED_TO_NEXT") return; // Already answered
-    
+    if (submitBtn.querySelector('.btn-text').textContent === "PROCEED_TO_NEXT") return;
     selectedOptionIndex = index;
-    
-    // Update visual selection
     document.querySelectorAll('.mcq-option').forEach(b => b.classList.remove('selected'));
     btnElement.classList.add('selected');
-    
-    // Enable submit
     submitBtn.disabled = false;
     submitBtn.style.opacity = '1';
 }
@@ -129,39 +148,22 @@ function checkAnswer() {
     if (selectedOptionIndex === -1) return;
 
     const q = questions[currentQuestionIndex];
-    const isCorrect = selectedOptionIndex === q.answer;
+    userAnswers.push(selectedOptionIndex);
 
     feedbackMessage.classList.remove('hidden');
     developerNote.classList.remove('hidden');
     
-    // Disable options
-    document.querySelectorAll('.mcq-option').forEach((b, idx) => {
+    document.querySelectorAll('.mcq-option').forEach(b => {
         b.style.pointerEvents = 'none';
-        if (idx === q.answer) {
-            b.style.borderColor = 'var(--success)';
-            b.style.color = 'var(--success)';
-        } else if (idx === selectedOptionIndex && !isCorrect) {
-            b.style.borderColor = 'var(--error)';
-            b.style.color = 'var(--error)';
-        }
     });
 
-    feedbackMessage.className = isCorrect ? 'feedback-correct' : 'feedback-wrong';
-    
-    if (isCorrect) {
-        feedbackMessage.innerHTML = `> ANALYSIS_CORRECT. DECRYPTION SUCCESSFUL.`;
-        score++;
-    } else {
-        feedbackMessage.innerHTML = `> CRITICAL_FAILURE. DECRYPTION FAILED.`;
-        document.querySelector('.cyber-card').style.borderColor = 'var(--error)';
-    }
+    feedbackMessage.className = 'feedback-correct';
+    feedbackMessage.innerHTML = `> RESPONSE_LOGGED. CHOICE RECORDED.`;
     
     developerNote.innerHTML = `<strong>> DEV_NOTE:</strong> ${q.note}`;
 
     submitBtn.querySelector('.btn-text').textContent = "PROCEED_TO_NEXT";
-    submitBtn.onclick = () => {
-        nextQuestion();
-    };
+    submitBtn.onclick = () => { nextQuestion(); };
 }
 
 function nextQuestion() {
@@ -169,18 +171,28 @@ function nextQuestion() {
     loadQuestion();
 }
 
-function endGame() {
+async function endGame() {
     questionScreen.classList.remove('active');
     endScreen.classList.add('active');
+
+    let serverScore = 0;
+    try {
+        const res = await fetch('/api/round/4/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: userAnswers })
+        });
+        const data = await res.json();
+        if (data.success) serverScore = data.score;
+    } catch(e) { console.warn('Server not reachable.'); }
+
+    score = serverScore;
     
-    // Animate score counter
     let currentScore = 0;
     const scoreInterval = setInterval(() => {
         finalScore.textContent = currentScore;
         if(currentScore === score) {
             clearInterval(scoreInterval);
-            
-            // Evaluation text based on score
             if(score === 4) {
                 evaluationText.innerHTML = "> SYSTEM_EVALUATION: FLAWLESS EXECUTION. SECURITY CLEARANCE GRANTED.";
                 evaluationText.style.color = "var(--success)";

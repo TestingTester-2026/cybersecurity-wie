@@ -45,18 +45,22 @@ const questions = [
 let currentQuestionIndex = 0;
 let score = 0;
 let startTime = 0;
-let endTime = 0;
 let leftSelected = null;
 let rightSelected = null;
 let currentLeftItems = [];
 let currentRightItems = [];
 let matchesMade = 0;
 let failedMatches = new Set();
+let isAdmin = false;
+
+// Per-set tracking for server submission
+let setResults = []; // { correctCount, failedMatchIds }
 
 // DOM Elements
 const startScreen = document.getElementById('start-screen');
 const questionScreen = document.getElementById('question-screen');
 const endScreen = document.getElementById('end-screen');
+const blockedScreen = document.getElementById('blocked-screen');
 const startBtn = document.getElementById('start-btn');
 const submitBtn = document.getElementById('submit-btn');
 const colLeft = document.getElementById('col-left');
@@ -66,7 +70,6 @@ const progressFill = document.getElementById('progress-fill');
 const finalScore = document.getElementById('final-score');
 const evaluationText = document.getElementById('evaluation-text');
 
-// Utility: Shuffle Array
 function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -75,15 +78,45 @@ function shuffle(array) {
     return array;
 }
 
-startBtn.addEventListener('click', startGame);
-submitBtn.addEventListener('click', nextSet);
+// ─── SESSION & ROUND STATUS CHECK ───────────────────────────────────────────
+(async function init() {
+    try {
+        const sessionRes = await fetch('/api/session');
+        const sessionData = await sessionRes.json();
+        if (!sessionData.authenticated) {
+            window.location.href = 'login.html';
+            return;
+        }
+        isAdmin = sessionData.is_admin;
 
-function startGame() {
+        const statusRes = await fetch('/api/round/3/status');
+        const statusData = await statusRes.json();
+        if (statusData.completed && !isAdmin) {
+            startScreen.classList.remove('active');
+            if (blockedScreen) {
+                blockedScreen.classList.add('active');
+                const blockedScore = document.getElementById('blocked-score');
+                if (blockedScore) blockedScore.textContent = statusData.score;
+            }
+            return;
+        }
+    } catch(e) {
+        console.warn('Server not reachable, running in static mode.');
+    }
+
+    startBtn.addEventListener('click', startGame);
+    submitBtn.addEventListener('click', nextSet);
+})();
+
+async function startGame() {
+    try { await fetch('/api/round/3/start', { method: 'POST' }); } catch(e) {}
+
     startScreen.classList.remove('active');
     questionScreen.classList.add('active');
     currentQuestionIndex = 0;
     score = 0;
     startTime = Date.now();
+    setResults = [];
     loadSet();
 }
 
@@ -96,7 +129,6 @@ function loadSet() {
     const q = questions[currentQuestionIndex];
     document.getElementById('q-number').textContent = q.title;
     
-    // Reset state
     leftSelected = null;
     rightSelected = null;
     matchesMade = 0;
@@ -105,20 +137,17 @@ function loadSet() {
     feedbackMessage.className = 'hidden';
     document.querySelector('.cyber-card').style.borderColor = 'var(--border-color)';
 
-    // Update progress bar
     const progressPercentage = (currentQuestionIndex / questions.length) * 100;
     progressFill.style.width = `${progressPercentage}%`;
 
-    // Prepare shuffled arrays
     currentLeftItems = q.pairs.map((p, i) => ({ text: p.left, matchId: i }));
     currentRightItems = q.pairs.map((p, i) => ({ text: p.right, matchId: i }));
     
     shuffle(currentLeftItems);
     shuffle(currentRightItems);
 
-    // Render Left
     colLeft.innerHTML = '';
-    currentLeftItems.forEach((item, index) => {
+    currentLeftItems.forEach((item) => {
         const btn = document.createElement('button');
         btn.className = 'match-btn';
         btn.textContent = item.text;
@@ -126,9 +155,8 @@ function loadSet() {
         colLeft.appendChild(btn);
     });
 
-    // Render Right
     colRight.innerHTML = '';
-    currentRightItems.forEach((item, index) => {
+    currentRightItems.forEach((item) => {
         const btn = document.createElement('button');
         btn.className = 'match-btn';
         btn.textContent = item.text;
@@ -140,13 +168,11 @@ function loadSet() {
 function selectItem(side, btn, matchId) {
     if (btn.classList.contains('matched')) return;
 
-    // Remove previous selection on this side
     const parentCol = side === 'left' ? colLeft : colRight;
     parentCol.querySelectorAll('.match-btn').forEach(b => {
         if (!b.classList.contains('matched')) b.classList.remove('selected', 'error');
     });
 
-    // Highlight new selection
     btn.classList.add('selected');
 
     if (side === 'left') {
@@ -161,13 +187,11 @@ function selectItem(side, btn, matchId) {
 function checkMatch() {
     if (leftSelected && rightSelected) {
         if (leftSelected.matchId === rightSelected.matchId) {
-            // Match successful
             leftSelected.btn.classList.remove('selected');
             rightSelected.btn.classList.remove('selected');
             leftSelected.btn.classList.add('matched');
             rightSelected.btn.classList.add('matched');
-            
-            // Scoring Logic: Escalating Stakes Model
+
             let setMultiplier = currentQuestionIndex + 1;
             if (!failedMatches.has(leftSelected.matchId)) {
                 score += setMultiplier;
@@ -180,13 +204,17 @@ function checkMatch() {
             matchesMade++;
             
             if (matchesMade === questions[currentQuestionIndex].pairs.length) {
-                // Set complete
                 if (failedMatches.size === 0) {
-                    score += 2; // Perfect Pull Bonus
+                    score += 2;
                     feedbackMessage.innerHTML = `> SET_CLEARED. PERFECT PULL BONUS APPLIED [+2].`;
                 } else {
                     feedbackMessage.innerHTML = `> SET_CLEARED. ALL PROTOCOLS ALIGNED.`;
                 }
+                // Record set result for server submission
+                setResults.push({
+                    correctCount: matchesMade,
+                    failedMatchIds: Array.from(failedMatches)
+                });
                 document.querySelector('.cyber-card').style.borderColor = 'var(--success)';
                 submitBtn.classList.remove('hidden');
             }
@@ -194,7 +222,6 @@ function checkMatch() {
             leftSelected = null;
             rightSelected = null;
         } else {
-            // Match failed
             failedMatches.add(leftSelected.matchId);
             failedMatches.add(rightSelected.matchId);
 
@@ -205,7 +232,6 @@ function checkMatch() {
             feedbackMessage.className = 'feedback-wrong';
             feedbackMessage.innerHTML = `> CONNECTION_FAILED. MISMATCH DETECTED.`;
 
-            // Reset after delay
             setTimeout(() => {
                 if(leftSelected) leftSelected.btn.classList.remove('selected', 'error');
                 if(rightSelected) rightSelected.btn.classList.remove('selected', 'error');
@@ -221,15 +247,33 @@ function nextSet() {
     loadSet();
 }
 
-function endGame() {
-    endTime = Date.now();
-    let timeElapsed = ((endTime - startTime) / 1000).toFixed(2);
+async function endGame() {
+    const endTime = Date.now();
+    const timeElapsed = ((endTime - startTime) / 1000).toFixed(2);
     document.getElementById('time-elapsed').textContent = timeElapsed + 's';
 
     questionScreen.classList.remove('active');
     endScreen.classList.add('active');
+
+    // Submit to server
+    let serverScore = score;
+    try {
+        const res = await fetch('/api/round/3/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: { sets: setResults } })
+        });
+        const data = await res.json();
+        if (data.success) {
+            serverScore = data.score;
+            if (data.time_elapsed_s) {
+                document.getElementById('time-elapsed').textContent = data.time_elapsed_s + 's';
+            }
+        }
+    } catch(e) { console.warn('Server not reachable.'); }
+
+    score = serverScore;
     
-    // Animate score counter
     let currentScore = 0;
     let stepTime = Math.max(20, Math.floor(1000 / Math.max(1, score)));
     const scoreInterval = setInterval(() => {

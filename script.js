@@ -2,36 +2,35 @@ const questions = [
     {
         from: "Development Team",
         subject: "Healthcare AI Tool Deployment",
-        detail: "A healthcare AI tool flags a patient as 'low risk' for a serious condition. The development team knows the model was trained on a dataset underrepresenting women over 50. They ship the tool anyway to meet the launch deadline.",
-        answer: "Red light"
+        detail: "A healthcare AI tool flags a patient as 'low risk' for a serious condition. The development team knows the model was trained on a dataset underrepresenting women over 50. They ship the tool anyway to meet the launch deadline."
     },
     {
         from: "Social Media Executive",
         subject: "Recommendation System Audit",
-        detail: "A social media company learns its recommendation system promotes harmful misinformation but delays action because engagement is at an all-time high.",
-        answer: "Red light"
+        detail: "A social media company learns its recommendation system promotes harmful misinformation but delays action because engagement is at an all-time high."
     },
     {
         from: "University Admissions",
         subject: "AI Screening Deployment",
-        detail: "A university uses AI to screen applications. Before deployment, it conducts fairness testing across gender, ethnicity, and socioeconomic groups.",
-        answer: "Green light"
+        detail: "A university uses AI to screen applications. Before deployment, it conducts fairness testing across gender, ethnicity, and socioeconomic groups."
     },
     {
         from: "Fitness App Tracker",
         subject: "Data Monetization",
-        detail: "A fitness app shares users' location history with advertisers without clearly informing users.",
-        answer: "Red light"
+        detail: "A fitness app shares users' location history with advertisers without clearly informing users."
     }
 ];
 
 let currentQuestionIndex = 0;
 let score = 0;
+let userAnswers = []; // Collect answers to submit to server
+let isAdmin = false;
 
 // DOM Elements
 const startScreen = document.getElementById('start-screen');
 const questionScreen = document.getElementById('question-screen');
 const endScreen = document.getElementById('end-screen');
+const blockedScreen = document.getElementById('blocked-screen');
 const startBtn = document.getElementById('start-btn');
 const submitBtn = document.getElementById('submit-btn');
 const btnRedLight = document.getElementById('btn-red-light');
@@ -65,16 +64,49 @@ function typeWriterEffect(element, text, speed = 15) {
     });
 }
 
-// Event Listeners
-startBtn.addEventListener('click', startGame);
-btnRedLight.addEventListener('click', () => checkAnswer('red light'));
-btnGreenLight.addEventListener('click', () => checkAnswer('green light'));
+// ─── SESSION & ROUND STATUS CHECK ───────────────────────────────────────────
+(async function init() {
+    try {
+        const sessionRes = await fetch('/api/session');
+        const sessionData = await sessionRes.json();
+        if (!sessionData.authenticated) {
+            window.location.href = 'login.html';
+            return;
+        }
+        isAdmin = sessionData.is_admin;
 
-function startGame() {
+        const statusRes = await fetch('/api/round/1/status');
+        const statusData = await statusRes.json();
+        if (statusData.completed && !isAdmin) {
+            // Round already completed — show blocked screen
+            startScreen.classList.remove('active');
+            if (blockedScreen) {
+                blockedScreen.classList.add('active');
+                const blockedScore = document.getElementById('blocked-score');
+                if (blockedScore) blockedScore.textContent = statusData.score;
+            }
+            return;
+        }
+    } catch(e) {
+        console.warn('Server not reachable, running in static mode.');
+    }
+
+    // Bind event listeners only if round is playable
+    startBtn.addEventListener('click', startGame);
+    btnRedLight.addEventListener('click', () => checkAnswer('red light'));
+    btnGreenLight.addEventListener('click', () => checkAnswer('green light'));
+})();
+
+async function startGame() {
+    try {
+        await fetch('/api/round/1/start', { method: 'POST' });
+    } catch(e) { /* static fallback */ }
+
     startScreen.classList.remove('active');
     questionScreen.classList.add('active');
     currentQuestionIndex = 0;
     score = 0;
+    userAnswers = [];
     loadQuestion();
 }
 
@@ -92,7 +124,7 @@ async function loadQuestion() {
     qSubject.textContent = '';
     qDetail.textContent = '';
     
-    btnRedLight.disabled = true; // Disable until typing finishes
+    btnRedLight.disabled = true;
     btnGreenLight.disabled = true;
     btnRedLight.style.opacity = '0.5';
     btnGreenLight.style.opacity = '0.5';
@@ -116,19 +148,12 @@ async function loadQuestion() {
 function checkAnswer(userAnswer) {
     if(btnRedLight.disabled) return;
 
-    const q = questions[currentQuestionIndex];
-    const isCorrect = userAnswer === q.answer.toLowerCase();
+    userAnswers.push(userAnswer); // Collect for server submission
 
-    feedbackMessage.className = isCorrect ? 'feedback-correct' : 'feedback-wrong';
+    // Show immediate feedback (cosmetic only — server computes real score)
     feedbackMessage.classList.remove('hidden');
-    
-    if (isCorrect) {
-        feedbackMessage.innerHTML = `> ANALYSIS_CORRECT: TARGET IDENTIFIED AS [${q.answer.toUpperCase()}].`;
-        score++;
-    } else {
-        feedbackMessage.innerHTML = `> CRITICAL_FAILURE: TARGET WAS ACTUALLY [${q.answer.toUpperCase()}].`;
-        if(!isCorrect) document.querySelector('.cyber-card').style.borderColor = 'var(--error)';
-    }
+    feedbackMessage.className = 'feedback-correct';
+    feedbackMessage.innerHTML = `> RESPONSE_LOGGED: [${userAnswer.toUpperCase()}]`;
 
     btnRedLight.disabled = true;
     btnGreenLight.disabled = true;
@@ -148,9 +173,27 @@ function nextQuestion() {
     loadQuestion();
 }
 
-function endGame() {
+async function endGame() {
     questionScreen.classList.remove('active');
     endScreen.classList.add('active');
+
+    // Submit answers to server for scoring
+    let serverScore = userAnswers.length; // fallback
+    try {
+        const res = await fetch('/api/round/1/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: userAnswers })
+        });
+        const data = await res.json();
+        if (data.success) {
+            serverScore = data.score;
+        }
+    } catch(e) {
+        console.warn('Server not reachable, using local score.');
+    }
+
+    score = serverScore;
     
     // Animate score counter
     let currentScore = 0;
@@ -159,7 +202,6 @@ function endGame() {
         if(currentScore === score) {
             clearInterval(scoreInterval);
             
-            // Evaluation text based on score
             if(score === 4) {
                 evaluationText.innerHTML = "> SYSTEM_EVALUATION: FLAWLESS EXECUTION. SECURITY CLEARANCE GRANTED.";
                 evaluationText.style.color = "var(--success)";
